@@ -11,7 +11,8 @@ try:
 except:
 	print("Error : Connection to the Database Failed")
 
-# Base Functions
+# Base Functions - These functions are not directly exposed by the API
+
 def hash(password):
 	return pbkdf2_sha256.hash(password)
 
@@ -34,7 +35,12 @@ def addAccount(username, password, privatekey=''):
 	c.execute("""INSERT INTO `vaults` (`user_ID`) VALUES (%s);""",(user_id))
 	
 def deleteAccount(username):
-	c.execute("""DELETE from `users` WHERE `user_name` = %s;""", (username,))
+	try:
+		c.execute("""DELETE from `users` WHERE `user_name` = %s;""", (username,))
+		# question : will return true be excecuted if the first command fails ? check
+		return true
+	except:
+		return false
 
 def generateCaptcha():
 	captchatext=''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(5))
@@ -51,11 +57,13 @@ def testCaptcha(uuid, captchaguess):
 		print("Error : Captcha not found")
 	if str(c.fetchone()[0])==captchaguess:
 	# ADD CHECK FOR TIME 
-		return {"success":true}
+		return true
 	else:
-		return {"success":false,"error":1}
+		return false
 
-# User Interaction functions.
+# User Interaction functions - These functions should be directly exposed to the API and have return values in the predefined format.
+# the format is an array, first object is true or false, indicates if the request succeeded, second is either reply or error
+# goal : replace errors by error codes for translation
 def user_deleteAccount(username, password):
 	if checkPassword(username, password):
 		try:

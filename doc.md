@@ -1,0 +1,199 @@
+# Keepsafe Password Manager
+
+## Registration
+
+1. User sends initial request to /Captcha
+
+2. Server generates captcha and stores captcha answer, uuid and creation date in database, then returns : 
+
+   ``` json
+   [true,
+   	{
+   		'captchaImage':"base64 image wizardry",
+   		'captchaUUID':"UUID of captcha"
+   	}
+   ]
+   ```
+
+3. The User sends a request to /Register :
+
+   1. User solves captcha and choses a username and passphrase
+   2. Client derives the **encryption keypair** (private/public keypair for encryption) from the username and passphrase using Scrypt and the username as a SALT, preventing easy bruteforcing. => `publicKey`
+   3. the username is SHA256'd client side => `username`
+   4. Client sends the result to the server :
+
+   ``` json
+   {	'username':"c2a1c863b1bb65dd7991f7c2a0c507e7976092f06bac07b574533686bb7a363c",
+    	'pubkey':"Rf5YElNrwMD7SNcNBPh9Iw6xBJmKxsNy4DoDT5oEDw8=",
+   	'captchaUUID':"70e56f72-e730-4199-b4b5-fe67d714add3",
+   	'captchaAnswer':"fucku"
+   }
+   ```
+
+   ​
+
+4. The server checks the captcha, then checks if the username is taken, if not and all is a-ok : 
+
+   ``` json
+   200 OK
+   ```
+
+   But if the username istaken (ohnoz) or the got the shitty captcha wrong : 
+
+   ```json
+   409 CONFLICT "USERNAME_TAKEN" / 418 I'M A TEAPOT "CAPTCHA_WRONG"
+   ```
+
+   ​
+
+## Login
+
+1. The user sends a request to /getChallenge
+
+   1. The request contains the users sha256'd username only.
+
+      ```json
+      "c2a1c863b1bb65dd7991f7c2a0c507e7976092f06bac07b574533686bb7a363c"	
+      ```
+
+
+   2. The server then finds the public key associated to the  username in the database
+
+   3. It generates a UUID and some random data which it inserts into the challenges table in the database along with the userID of the user and current datetime, from this point onwards the client has a fixed amount of time to solve the challenge before it expires. ==> `challengeUuid`
+
+   4. The Server then encrypts this data with the users public key.==> `challenge`. 
+
+   5. The server replies:
+
+      ```json
+      {
+        challengeUuid:"692b034e-f05a-47ba-8c52-e92406f20b81",
+        challenge:"Zm9lemhvZ2ZpemVob2ZpaGFlb2loZmFva2VucGZzb2Jpc2hkb3A="
+      }
+      ```
+
+2. The user sends a request to /Login
+
+   1. The user enters their username and passphrase, the client derives the private key as during registration
+
+   2. Using the private key, the client decrypts the previously obtained challenge ==> `answer`
+
+   3. The Client the generates a device keypair (public and private) => `devicePublicKey`
+
+   4. The Client asks for a deviceName (defaults to browser on OS) => `deviceName`
+
+   5. The client optionally allows the user to create expiring devices and add an expirydatetime => `expiryDateTime` (format to be decided)
+
+   6. In Keepsafe Enterprise™ the Client also sends the level of access it wishes for this device to have ([ŧrue,true,true,true] for read, write,delete,manageDevices) => `accessLevel`
+
+      ```json
+      {
+      'username':"myCoolUsername",
+      'answer':"ZnplaG90aWdmaGFwZWZvYWliZm9haWZwb2FpaHpyb2lhemhnb2ZpYXo=",
+      'deviceName':"Internet Explorer 4 on Windows Vista",
+      'devicePublicKey':"GF928UD029Y972Y029EU0972G08ER",
+      'expiryDateTime':"2017-07-26-10:30",
+      'accessLevel':[true,true,true,true]
+      }
+      ```
+
+   7. When the server recieves the request it checks the following conditions : 
+
+      * Is the the userID of the given username the same as that of the challenge?
+      * Has the challenge expired?
+      * Is the answer given correct?
+
+   8. If those conditions are met the server then replies with the newly added devices UUID :
+
+      ```json
+      200 OK "2ddd2634-0048-4c71-b847-2033a821dced"
+      ```
+
+   9. if it fails :
+
+      ```json
+      403 Forbidden "WRONG_UUID_FOR_CHALLENGE"/"CHALLENGE_EXPIRED"/"INCORRECT_ANSWER"
+      ```
+
+
+
+* After this, all requests to the server from the device are signed by the devices private key and verified serverside by the devices public key. The device uuid is included in all subsequent requests.
+
+## Requesting/Modifying data (passwords):
+
+1. The Client sends a request /getPasswords containing the deviceUUID and the current unix timestamp encrypted with the devices private key :
+
+   ```json
+   [
+   	deviceUUID:"b74e3416-79ea-4338-9e26-0aa15e69c230"
+   	encryptedRequest: encrypted(
+   		timestamp
+   	)
+   ]
+   ```
+
+   ​
+
+2. The server gets the request and replies
+
+   1. The server gets the device public key connected to that UUID
+
+   2. It attempts to decrypt the message, if it succeeds this means the user has the deviceprivatekey and is authenticated
+
+   3. it then checks if the user is authorised to read data from the server
+
+   4. if so it gets the userID related to the device in question and gets all their passwords.
+
+   5. It then encrypts them with the device public key and replies :
+
+      ``` json
+      200 OK "encryptedData"
+      ```
+
+   6. In the event of an error the device replies as previously noted
+
+3. The Client receives the reply :
+
+   1. It decrypts the data with the device key
+   2. It decrypts the passwords with the master key
+   3. all done here
+
+* A similar system is used when the user wishes to update or add a password
+
+## Tables :
+
+### users
+
+|  id  | username |     publickey      |
+| :--: | :------: | :----------------: |
+|  0   | (SHA256) |     blablabla      |
+|  1   | (SHA256) | blarghblarghblargh |
+
+### devices
+
+|      uuid      | userID |       name       |       publickey        |  expires   | permissions |
+| :------------: | :----: | :--------------: | :--------------------: | :--------: | ----------- |
+| uuid goes here |   0    | firefox on linux | ofnoaeifhoaeihfoaeihoa | 2018-04-06 | 1111        |
+|   other uuid   |   1    | netscape on OS/2 | djazpejazpfjaezofho_gr |            | 1110        |
+
+### captchas
+
+|   uuid    | answer |     created      |
+| :-------: | :----: | :--------------: |
+| uuid here | jd6zk  | 2017-07-23-10:20 |
+
+### passwords
+
+| uuid | userID | data | created | modified |
+| :--: | :----: | :--: | :-----: | :------: |
+|      |        |      |         |          |
+|      |        |      |         |          |
+|      |        |      |         |          |
+
+### challenges
+
+| uuid | userID | answer | created |
+| :--: | :----: | :----: | :-----: |
+|      |        |        |         |
+|      |        |        |         |
+|      |        |        |         |

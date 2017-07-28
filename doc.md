@@ -7,23 +7,20 @@
 2. Server generates captcha and stores captcha answer, uuid and creation date in database, then returns : 
 
    ``` json
-   [true,
-   	{
-   		'captchaImage':"base64 image wizardry",
-   		'captchaUUID':"UUID of captcha"
-   	}
-   ]
+    {
+        'captchaImage':"base64 image wizardry",
+        'captchaUUID':"8e628d99-59ca-4303-8280-ac8159fd2c4f"
+    }
    ```
 
 3. The User sends a request to /Register :
 
    1. User solves captcha and choses a username and passphrase
    2. Client derives the **encryption keypair** (private/public keypair for encryption) from the username and passphrase using Scrypt and the username as a SALT, preventing easy bruteforcing. => `publicKey`
-   3. the username is SHA256'd client side => `username`
-   4. Client sends the result to the server :
+   3. Client sends the result to the server :
 
    ``` json
-   {	'username':"c2a1c863b1bb65dd7991f7c2a0c507e7976092f06bac07b574533686bb7a363c",
+   {	
     	'pubkey':"Rf5YElNrwMD7SNcNBPh9Iw6xBJmKxsNy4DoDT5oEDw8=",
    	'captchaUUID':"70e56f72-e730-4199-b4b5-fe67d714add3",
    	'captchaAnswer':"fucku"
@@ -38,10 +35,10 @@
    200 OK
    ```
 
-   But if the username istaken (ohnoz) or the got the shitty captcha wrong : 
+   But if the public key is already in the database or the got the shitty captcha wrong : 
 
    ```json
-   409 CONFLICT "USERNAME_TAKEN" / 418 I'M A TEAPOT "CAPTCHA_WRONG"
+   409 CONFLICT "ACCOUNT_EXISTS" / 418 I'M A TEAPOT "CAPTCHA_WRONG"
    ```
 
    ​
@@ -50,16 +47,16 @@
 
 1. The user sends a request to /getChallenge
 
-   1. The request contains the users sha256'd username only.
+   1. The request contains the users public key.
 
       ```json
-      "c2a1c863b1bb65dd7991f7c2a0c507e7976092f06bac07b574533686bb7a363c"	
+      "6auYQU8XhrUkiryxwcBWvUficKOUrGLif1ghDBOAijc="	
       ```
 
 
-   2. The server then finds the public key associated to the  username in the database
+   2. The server then finds the public key in the database and its associated userID.
 
-   3. It generates a UUID and some random data which it inserts into the challenges table in the database along with the userID of the user and current datetime, from this point onwards the client has a fixed amount of time to solve the challenge before it expires. ==> `challengeUuid`
+   3. It generates a UUID and some random data which it inserts into the challenges table in the database along with the userID connected to the public key and current datetime, from this point onwards the client has a fixed amount of time to solve the challenge before it expires. ==> `challengeUuid`
 
    4. The Server then encrypts this data with the users public key.==> `challenge`. 
 
@@ -67,14 +64,15 @@
 
       ```json
       {
-        challengeUuid:"692b034e-f05a-47ba-8c52-e92406f20b81",
+        challengeUUID:"692b034e-f05a-47ba-8c52-e92406f20b81",
         challenge:"Zm9lemhvZ2ZpemVob2ZpaGFlb2loZmFva2VucGZzb2Jpc2hkb3A="
+        nonce:"dhzdn729pemVob2ZpaGFlb2loZmFva2VucGZzb2df798dhdz0="
       }
       ```
 
-2. The user sends a request to /Login
+6. The user sends a request to /Login
 
-   1. The user enters their username and passphrase, the client derives the private key as during registration
+   1. The user enters their username and passphrase, the client derives the private and public key as during registration ==> `publicKey`
 
    2. Using the private key, the client decrypts the previously obtained challenge ==> `answer`
 
@@ -88,18 +86,19 @@
 
       ```json
       {
-      'username':"myCoolUsername",
-      'answer':"ZnplaG90aWdmaGFwZWZvYWliZm9haWZwb2FpaHpyb2lhemhnb2ZpYXo=",
-      'deviceName':"Internet Explorer 4 on Windows Vista",
-      'devicePublicKey':"GF928UD029Y972Y029EU0972G08ER",
-      'expiryDateTime':"2017-07-26-10:30",
-      'accessLevel':[true,true,true,true]
+      publicKey:"6auYQU8XhrUkiryxwcBWvUficKOUrGLif1ghDBOAijc=",
+      challengeUUID:"692b034e-f05a-47ba-8c52-e92406f20b81"
+      answer:"ZnplaG90aWdmaGFwZWZvYWliZm9haWZwb2FpaHpyb2lhemhnb2ZpYXo=",
+      deviceName:"Internet Explorer 4 on Windows Vista",
+      devicePublicKey:"GF928UD029Y972Y029EU0972G08ER",
+      expiryDateTime:"2017-07-26-10:30",
+      accessLevel:[true,true,true,true]
       }
       ```
 
    7. When the server recieves the request it checks the following conditions : 
 
-      * Is the the userID of the given username the same as that of the challenge?
+      * Is the the userID of the given publickey the same as that of the challenge?
       * Has the challenge expired?
       * Is the answer given correct?
 
@@ -164,10 +163,10 @@
 
 ### users
 
-|  id  | username |     publickey      |
-| :--: | :------: | :----------------: |
-|  0   | (SHA256) |     blablabla      |
-|  1   | (SHA256) | blarghblarghblargh |
+|  id  | publicKey |
+| :--: | :-------: |
+|  0   |    key    |
+|  1   |    key    |
 
 ### devices
 
@@ -184,16 +183,16 @@
 
 ### passwords
 
-| uuid | userID | data | created | modified |
-| :--: | :----: | :--: | :-----: | :------: |
-|      |        |      |         |          |
-|      |        |      |         |          |
-|      |        |      |         |          |
+| uuid | userID | data | nonce | created | modified |
+| :--: | :----: | :--: | :---: | :-----: | :------: |
+|      |        |      |       |         |          |
+|      |        |      |       |         |          |
+|      |        |      |       |         |          |
 
 ### challenges
 
-| uuid | userID | answer | created |
-| :--: | :----: | :----: | :-----: |
-|      |        |        |         |
-|      |        |        |         |
-|      |        |        |         |
+| uuid | userID | answer | nonce | created |
+| :--: | :----: | :----: | :---: | :-----: |
+|      |        |        |       |         |
+|      |        |        |       |         |
+|      |        |        |       |         |

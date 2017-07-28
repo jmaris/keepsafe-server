@@ -1,7 +1,7 @@
-import pymysql,captcha,base64,random,string, uuid, datetime
+import pymysql,captcha,base64,random,string, uuid, datetime, nacl.utils base64
+from nacl.public import PrivateKey, SealedBox
 from io import BytesIO
 from captcha.image import ImageCaptcha
-from passlib.hash import pbkdf2_sha256
 image = ImageCaptcha()
 
 # Connects directly to the MySQL database
@@ -12,63 +12,64 @@ except:
 	print("Error : Connection to the Database Failed")
 
 # Base Functions - These functions are not directly exposed by the API
-
-def hash(password):
-	return pbkdf2_sha256.hash(password)
-
 def genUUID():
 	return uuid.uuid4().hex
 
-def checkHash(password, hash):
-	return pbkdf2_sha256.verify(password, hash)
-
-def checkPassword(username, password):
-	c.execute("""SELECT user_pwhash FROM users WHERE user_name = %s;""", (username,))
-	return checkHash(password, c.fetchone()[0])
-
-def addAccount(username, password, privatekey=''):
-	user_name=str(username)
-	pwhash=str(hash(password))
-	c.execute("""INSERT INTO `users` (`user_name`, `user_pwhash`, `user_privatekey`) VALUES (%s, %s, %s);""",(username, pwhash, privatekey))
-	c.execute("""SELECT `user_id` FROM `users` WHERE `user_name` = %s;""",(username))
-	user_id=c.fetchone()[0]
-	c.execute("""INSERT INTO `vaults` (`user_ID`) VALUES (%s);""",(user_id))
+def addAccount(publicKey):
+	c.execute("""INSERT INTO `users` (`publicKey`) VALUES (%s);""",(publicKey))
 	
-def deleteAccount(username):
+def deleteAccount(publicKey):
+	# delete passwords from the database
 	try:
-		c.execute("""DELETE from `users` WHERE `user_name` = %s;""", (username,))
-		# question : will return true be excecuted if the first command fails ? check
+		c.execute("""DELETE from `users` WHERE `publicKey` = %s;""", (publicKey,))
 		return true
-	except:
-		return false
+	except:	return false
 
+def testCaptcha(captchaUUID, captchaAnswer):
+	try:
+		c.execute("""SELECT `captcha`,`created` FROM `captchas` WHERE `uuid` = %s;""",(captchaUUID))
+	except:
+		return "CAPTCHA_NOTFOUND"
+	if str(c.fetchone()[0])==captchaguess:
+		if: c.fetchone()[1].strftime('%Y-%m-%d %H:%M:%S') > datetime.now()-datetime.timedelta(minutes=5)
+			return true
+		else:
+			return "CAPTCHA_EXPIRED"
+	else:
+		return "CAPTCHA_WRONG"
+
+def generateChallenge(publicKey):
+	try:
+		c.execute("""SELECT `id` FROM `users` WHERE `publicKey` = %s;""",(publicKey))
+		userID=c.fetchone()[0]
+		challengeUUID=genUUID()
+		challengebin=nacl.utils.random(Box.NONCE_SIZE)
+		c.execute("""INSERT INTO `challenges` (`uuid`,`userID`,`data`) VALUES (%s, %s, %s);""",(challengeUuid, userID, base64.b64encode(challengebin))
+		challenge=SealedBox(nacl.public.PublicKey(publicKey, nacl.encoding.Base64Encoder)).encrypt(challengebin)
+		return {'challenge':challenge.encode(encoder=nacl.encoding.Base64Encoder) 'challengeUUID':challengeUUID}
+		
+def checkChallenge(challengeUUID, answer):
+	
+
+# User Interaction functions - These functions should be directly exposed to the API and have return values in the predefined format.
+# the format is an array, first object is true or false, indicates if the request succeeded, second is either reply or error
+# goal : replace errors by error codes for translation
+
+def register(username, publicKey, captchaUUID, captchaAnswer):
+	captchaResult=testCaptcha(captchaUUID, captchaAnswer)
+	if captchaResult==true:
+		try:
+			addAccount(username, publicKey)
+		except:
+			return "USERNAME_TAKEN"
+	else:
+		return captchaResult
+	
 def generateCaptcha():
 	captchatext=''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(5))
 	uuid=genUUID()
 	c.execute("""INSERT INTO `captcha` (`uuid`, `captcha`) VALUES (%s, %s);""",(uuid, captchatext))
 	captchaimage=str(base64.b64encode(image.generate(captchatext).getvalue())).split("'")[1]
-	return({'uuid':uuid, 'captchaimage':captchaimage})
+	return({'captchaUUID':uuid, 'captchaimage':captchaimage})
 
-def testCaptcha(uuid, captchaguess):
-	try:
-		c.execute("""SELECT `captcha`,`added` FROM `captcha` WHERE `uuid` = %s;""",(uuid))
-		print(c.fetchone())
-	except:
-		print("Error : Captcha not found")
-	if str(c.fetchone()[0])==captchaguess:
-	# ADD CHECK FOR TIME 
-		return true
-	else:
-		return false
 
-# User Interaction functions - These functions should be directly exposed to the API and have return values in the predefined format.
-# the format is an array, first object is true or false, indicates if the request succeeded, second is either reply or error
-# goal : replace errors by error codes for translation
-def user_deleteAccount(username, password):
-	if checkPassword(username, password):
-		try:
-			deleteAccount(username)
-		except:
-			return [false, "Error : Could not delete account, account does not exist"]
-	else:
-		return [false, "Error : Could not delete account, incorrect password"]

@@ -1,13 +1,26 @@
 from sqlalchemy import *
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
+Base = declarative_base()
 engine = create_engine('mysql+pymysql://keepsafe:7k77xJuGeqZYu97gpFfS8xsheXYHGHjB@localhost/keepsafe_db')
 
-metadata = MetaData()
+class User(Base):
+    __tablename__ = 'user'
 
-user = Table('user', metadata,
-    Column('id', Integer, primary_key = True),
-    Column('username_hash', String(88)),
-    Column('public_key', String(44))
+    id = Column(Integer, primary_key = True)
+    username_hash = Column(String(88))
+    public_key = Column(String(44))
+
+# Base.metadata.create_all(engine)
+
+Session = sessionmaker(bind = engine)
+session = Session()
+
+new_user = User(
+    username_hash = 'f08MWDBZh8BFMDFxxap1TT/geuP8jeBqN7bQsToN1usxrYyhipONKAuh3mmJZ4+eyThKh3oea8d8bk0lrQj7Uw==',
+    public_key = 'QOK6kY3xFFT/4wQhjkCZrprclu5VrKc/gdK5PYdI6kQ='
 )
 
-metadata.create_all(engine)
+session.add(new_user)
+session.commit()

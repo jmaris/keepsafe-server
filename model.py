@@ -3,6 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 import falcon
+import json, uuid, random, string, base64
+from captcha.image import ImageCaptcha
+
+ALLOWED_ORIGINS = ['http://localhost:4200']
 
 Base = declarative_base()
 engine = create_engine('mysql+pymysql://keepsafe:7k77xJuGeqZYu97gpFfS8xsheXYHGHjB@localhost/keepsafe_db')
@@ -14,7 +18,14 @@ class User(Base):
     username_hash = Column(String(88))
     public_key = Column(String(44))
 
-# Base.metadata.create_all(engine)
+class Captcha(Base):
+    __tablename__ = 'captcha'
+
+    uuid = Column(String(32), primary_key = True)
+    answer = Column(String(5))
+    date_created = Column(DateTime)
+
+Base.metadata.create_all(engine)
 
 #Session = sessionmaker(bind = engine)
 #session = Session()
@@ -36,8 +47,32 @@ class UserResource(object):
         resp.status = falcon.HTTP_200
         resp.body = 'User::Post'
 
-app = falcon.API()
+class CaptchaResource(object):
+    def on_get(self, req, resp):
+        # Generate a new captcha
+
+        image = ImageCaptcha()
+
+        captchaUuid = str(uuid.uuid4())
+        captchaAnswer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
+        captchaImage = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captchaAnswer).getvalue())).split("'")[1]
+
+        resp.status = falcon.HTTP_200
+        resp.body = json.dumps({
+            'uuid': captchaUuid,
+            'image': captchaImage
+        })
+
+class CorsMiddleware(object):
+    def process_request(self, request, response):
+        origin = request.get_header('Origin')
+        if origin in ALLOWED_ORIGINS:
+            response.set_header('Access-Control-Allow-Origin', origin)
+
+app = falcon.API(middleware=[CorsMiddleware()])
 
 userResource = UserResource()
+captchaResource = CaptchaResource()
 
 app.add_route('/users', userResource)
+app.add_route('/captcha', captchaResource)

@@ -12,6 +12,7 @@ A REST powered fully encrypted password manager : Server
   * falcon (`pip install falcon`)
   * gunicorn (`pip install gunicorn`)
   * sqlalchemy (`pip install sqlalchemy`)
+  * pynacl (`pip install pynacl`)
 
 ## Run the API server
 

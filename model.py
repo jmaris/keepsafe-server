@@ -4,6 +4,9 @@ from sqlalchemy.orm import sessionmaker
 
 import falcon
 import json, uuid, random, string, base64
+
+import nacl.encoding, nacl.hash
+
 from captcha.image import ImageCaptcha
 
 ALLOWED_ORIGINS = ['http://localhost:4200']
@@ -24,6 +27,7 @@ class Captcha(Base):
     uuid = Column(String(32), primary_key = True)
     answer = Column(String(5))
     date_created = Column(DateTime)
+    ip_address_hash = Column(String(44))
 
 Base.metadata.create_all(engine)
 
@@ -53,14 +57,17 @@ class CaptchaResource(object):
 
         image = ImageCaptcha()
 
-        captchaUuid = str(uuid.uuid4())
-        captchaAnswer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
-        captchaImage = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captchaAnswer).getvalue())).split("'")[1]
+        captcha_uuid = str(uuid.uuid4())
+        captcha_answer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
+        captcha_image = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captcha_answer).getvalue())).split("'")[1]
+        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder)
+
+        print(captcha_ip_address_hash)
 
         resp.status = falcon.HTTP_200
         resp.body = json.dumps({
-            'uuid': captchaUuid,
-            'image': captchaImage
+            'uuid': captcha_uuid,
+            'image': captcha_image
         })
 
 class CorsMiddleware(object):

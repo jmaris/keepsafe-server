@@ -24,9 +24,9 @@ class User(Base):
 class Captcha(Base):
     __tablename__ = 'captcha'
 
-    uuid = Column(String(32), primary_key = True)
-    answer = Column(String(5))
-    date_created = Column(DateTime)
+    uuid = Column(String(36), primary_key = True)
+    answer = Column(String(6))
+    date_created = Column(DateTime, default = func.now())
     ip_address_hash = Column(String(44))
 
 Base.metadata.create_all(engine)
@@ -61,13 +61,16 @@ class CaptchaResource(object):
         captcha_answer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
         captcha_image = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captcha_answer).getvalue())).split("'")[1]
 
+        # The answer should be case insensitive, the caps are just there for the bots
+        captcha_answer = captcha_answer.lower()
+
         # Hash the user's IP address with the captcha UUID as salt
-        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder)
+        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder).decode('utf-8')
 
         captcha = Captcha(
             uuid = captcha_uuid,
             answer = captcha_answer,
-            date_created = datetime.datetime.utcnow,
+            # date_created = datetime.datetime.utcnow,
             ip_address_hash = captcha_ip_address_hash
         )
 

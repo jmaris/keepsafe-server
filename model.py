@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 import falcon
-import json, uuid, random, string, base64
+import json, uuid, random, string, base64, datetime
 
 import nacl.encoding, nacl.hash
 
@@ -60,9 +60,18 @@ class CaptchaResource(object):
         captcha_uuid = str(uuid.uuid4())
         captcha_answer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
         captcha_image = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captcha_answer).getvalue())).split("'")[1]
+
+        # Hash the user's IP address with the captcha UUID as salt
         captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder)
 
-        print(captcha_ip_address_hash)
+        captcha = Captcha(
+            uuid = captcha_uuid,
+            answer = captcha_answer,
+            date_created = datetime.datetime.utcnow,
+            ip_address_hash = captcha_ip_address_hash
+        )
+
+        # Todo: find a way to access the  ORM session from inside a class instance and add the captcha to DB
 
         resp.status = falcon.HTTP_200
         resp.body = json.dumps({

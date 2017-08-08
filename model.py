@@ -31,8 +31,8 @@ class Captcha(Base):
 
 Base.metadata.create_all(engine)
 
-#Session = sessionmaker(bind = engine)
-#session = Session()
+Session = sessionmaker(bind = engine)
+session = Session()
 
 #new_user = User(
 #    username_hash = 'f08MWDBZh8BFMDFxxap1TT/geuP8jeBqN7bQsToN1usxrYyhipONKAuh3mmJZ4+eyThKh3oea8d8bk0lrQj7Uw==',
@@ -71,7 +71,10 @@ class CaptchaResource(object):
             ip_address_hash = captcha_ip_address_hash
         )
 
-        # Todo: find a way to access the  ORM session from inside a class instance and add the captcha to DB
+        session = req.context['session']
+
+        session.add(captcha)
+        session.commit()
 
         resp.status = falcon.HTTP_200
         resp.body = json.dumps({
@@ -82,13 +85,32 @@ class CaptchaResource(object):
 class CorsMiddleware(object):
     def process_request(self, request, response):
         origin = request.get_header('Origin')
+
         if origin in ALLOWED_ORIGINS:
             response.set_header('Access-Control-Allow-Origin', origin)
 
-app = falcon.API(middleware=[CorsMiddleware()])
+class DatabaseSessionMiddleware(object):
+    def __init__(self, session):
+        self._session = session
 
-userResource = UserResource()
-captchaResource = CaptchaResource()
+    # When a new request comes in, add the database session to the request context
+    def process_request(self, req, res, resource = None):
+        req.context['session'] = self._session
 
-app.add_route('/users', userResource)
-app.add_route('/captcha', captchaResource)
+    # When a response is provided to a request, close the session
+    def process_response(self, req, res, resource = None):
+        session = req.context['session']
+
+        session.close()
+
+class App(falcon.API):
+    def __init__(self, *args, **kwargs):
+        super(App, self).__init__(*args, **kwargs)
+
+        userResource = UserResource()
+        captchaResource = CaptchaResource()
+
+        self.add_route('/users', userResource)
+        self.add_route('/captcha', captchaResource)
+
+app = App(middleware = [CorsMiddleware(), DatabaseSessionMiddleware(session)])

@@ -29,7 +29,6 @@ class CaptchaResource(object):
         captcha = db.Captcha(
             uuid = captcha_uuid,
             answer = captcha_answer,
-            # created = datetime.datetime.utcnow,
             ip_address_hash = captcha_ip_address_hash
         )
 
@@ -51,11 +50,10 @@ class ChallengeResource():
                 challenge_answer = nacl.utils.random(Box.NONCE_SIZE)
                 challenge_uuid = str(uuid.uuid4())
                 challenge = SealedBox(nacl.public.PublicKey(publicKey, nacl.encoding.Base64Encoder)).encrypt(answer)
-                challenge=db.challenge(
-                        uuid = chalenge_uuid
-                        userID = challenge_userID
+                challenge=db.Challenge(
+                        uuid = chalenge_uuid,
+                        userID = challenge_userID,
                         answer = challenge_answer
-                        # created = datetime.datetime.utcnow,
                         
                 )
                 resp.status = falcon.HTTP_200

@@ -1,5 +1,6 @@
-import db, falcon, json, uuid, random, string, base64, datetime
+import db, falcon, json, uuid, random, string, base64, datetime, nacl.utils
 from captcha.image import ImageCaptcha
+from nacl.public import PrivateKey, SealedBox
 import nacl.encoding, nacl.hash
 class UserResource(object):
     def on_get(self, req, resp):
@@ -50,6 +51,7 @@ class ChallengeResource():
                 challenge_answer = nacl.utils.random(Box.NONCE_SIZE)
                 challenge_uuid = str(uuid.uuid4())
                 challenge = SealedBox(nacl.public.PublicKey(publicKey, nacl.encoding.Base64Encoder)).encrypt(answer)
+                print(req.params)
                 challenge=db.Challenge(
                         uuid = chalenge_uuid,
                         userID = challenge_userID,

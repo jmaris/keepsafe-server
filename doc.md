@@ -191,8 +191,8 @@
 
 ### challenges
 
-| uuid | userID | answer | nonce | created |
-| :--: | :----: | :----: | :---: | :-----: |
-|      |        |        |       |         |
-|      |        |        |       |         |
-|      |        |        |       |         |
+| uuid | userID | answer | created |
+| :--: | :----: | :----: | :-----: |
+|      |        |        |         |
+|      |        |        |         |
+|      |        |        |         |

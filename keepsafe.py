@@ -1,75 +1,67 @@
-import pymysql,captcha,base64,random,string, uuid, datetime, nacl.utils base64
-from nacl.public import PrivateKey, SealedBox
-from io import BytesIO
+import db, falcon, json, uuid, random, string, base64, datetime
 from captcha.image import ImageCaptcha
-image = ImageCaptcha()
+import nacl.encoding, nacl.hash
+class UserResource(object):
+    def on_get(self, req, resp):
+        resp.status = falcon.HTTP_200
+        resp.body = 'db.User::Get'
 
-# Connects directly to the MySQL database
-try:
-	db=pymysql.connect("localhost","keepsafe","testingkeepsafe","keepsafe", autocommit=True)
-	c=db.cursor()
-except:
-	print("Error : Connection to the Database Failed")
+    def on_post(self, req, resp):
+        resp.status = falcon.HTTP_200
+        resp.body = 'db.User::Post'
 
-# Base Functions - These functions are not directly exposed by the API
-def genUUID():
-	return uuid.uuid4().hex
+class CaptchaResource(object):
+    def on_get(self, req, resp):
+        # Generate a new captcha
 
-def addAccount(publicKey):
-	c.execute("""INSERT INTO `users` (`publicKey`) VALUES (%s);""",(publicKey))
-	
-def deleteAccount(publicKey):
-	# delete passwords from the database
-	try:
-		c.execute("""DELETE from `users` WHERE `publicKey` = %s;""", (publicKey,))
-		return true
-	except:	return false
+        image = ImageCaptcha()
 
-def testCaptcha(captchaUUID, captchaAnswer):
-	try:
-		c.execute("""SELECT `captcha`,`created` FROM `captchas` WHERE `uuid` = %s;""",(captchaUUID))
-	except:
-		return "CAPTCHA_NOTFOUND"
-	if str(c.fetchone()[0])==captchaguess:
-		if: c.fetchone()[1].strftime('%Y-%m-%d %H:%M:%S') > datetime.now()-datetime.timedelta(minutes=5)
-			return true
-		else:
-			return "CAPTCHA_EXPIRED"
-	else:
-		return "CAPTCHA_WRONG"
+        captcha_uuid = str(uuid.uuid4())
+        captcha_answer = ''.join(random.SystemRandom().choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(6))
+        captcha_image = 'data:image/png;base64,' + str(base64.b64encode(image.generate(captcha_answer).getvalue())).split("'")[1]
 
-def generateChallenge(publicKey):
-	try:
-		c.execute("""SELECT `id` FROM `users` WHERE `publicKey` = %s;""",(publicKey))
-		userID=c.fetchone()[0]
-		challengeUUID=genUUID()
-		challengebin=nacl.utils.random(Box.NONCE_SIZE)
-		c.execute("""INSERT INTO `challenges` (`uuid`,`userID`,`data`) VALUES (%s, %s, %s);""",(challengeUuid, userID, base64.b64encode(challengebin))
-		challenge=SealedBox(nacl.public.PublicKey(publicKey, nacl.encoding.Base64Encoder)).encrypt(challengebin)
-		return {'challenge':challenge.encode(encoder=nacl.encoding.Base64Encoder) 'challengeUUID':challengeUUID}
-		
-def checkChallenge(challengeUUID, answer):
-	
+        # The answer should be case insensitive, the caps are just there for the bots
+        captcha_answer = captcha_answer.lower()
 
-# User Interaction functions - These functions should be directly exposed to the API and have return values in the predefined format.
-# the format is an array, first object is true or false, indicates if the request succeeded, second is either reply or error
-# goal : replace errors by error codes for translation
+        # Hash the user's IP address with the captcha UUID as salt
+        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder).decode('utf-8')
 
-def register(username, publicKey, captchaUUID, captchaAnswer):
-	captchaResult=testCaptcha(captchaUUID, captchaAnswer)
-	if captchaResult==true:
-		try:
-			addAccount(username, publicKey)
-		except:
-			return "USERNAME_TAKEN"
-	else:
-		return captchaResult
-	
-def generateCaptcha():
-	captchatext=''.join(random.SystemRandom().choice(string.ascii_lowercase + string.digits) for _ in range(5))
-	uuid=genUUID()
-	c.execute("""INSERT INTO `captcha` (`uuid`, `captcha`) VALUES (%s, %s);""",(uuid, captchatext))
-	captchaimage=str(base64.b64encode(image.generate(captchatext).getvalue())).split("'")[1]
-	return({'captchaUUID':uuid, 'captchaimage':captchaimage})
+        captcha = db.Captcha(
+            uuid = captcha_uuid,
+            answer = captcha_answer,
+            # created = datetime.datetime.utcnow,
+            ip_address_hash = captcha_ip_address_hash
+        )
 
+        session = req.context['session']
 
+        session.add(captcha)
+        session.commit()
+
+        resp.status = falcon.HTTP_200
+        resp.body = json.dumps({
+            'uuid': captcha_uuid,
+            'image': captcha_image
+        })
+
+class ChallengeResource():
+        def on_post(self, req, resp):
+                # ! extract the public Key from the request
+                # ! get the userID related to the public key => challenge_userID
+                challenge_answer = nacl.utils.random(Box.NONCE_SIZE)
+                challenge_uuid = str(uuid.uuid4())
+                challenge = SealedBox(nacl.public.PublicKey(publicKey, nacl.encoding.Base64Encoder)).encrypt(answer)
+                challenge=db.challenge(
+                        uuid = chalenge_uuid
+                        userID = challenge_userID
+                        answer = challenge_answer
+                        # created = datetime.datetime.utcnow,
+                        
+                )
+                resp.status = falcon.HTTP_200
+                resp.body = json.dumps({
+                        'uuid' : challenge_uuid,
+                        'challenge' : challenge
+                })               
+                
+                

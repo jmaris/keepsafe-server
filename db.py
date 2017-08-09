@@ -11,7 +11,6 @@ class User(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key = True)
-    username_hash = Column(String(88))
     public_key = Column(String(44))
 
 class Captcha(Base):
@@ -19,8 +18,16 @@ class Captcha(Base):
 
     uuid = Column(String(36), primary_key = True)
     answer = Column(String(6))
-    date_created = Column(DateTime, default = func.now())
+    created = Column(DateTime, default = func.now())
     ip_address_hash = Column(String(44))
+
+class Challenge(Base):
+        __tablename__ = 'challenges'
+        uuid = Column(String(36), primary_key = True)
+        userID = Column(Integer)
+        answer = Column(String(44))
+        created = Column(DateTime, default = func.now())
+        
 
 Base.metadata.create_all(engine)
 

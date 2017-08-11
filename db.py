@@ -63,3 +63,11 @@ class DatabaseSessionMiddleware(object):
 
         session.close()
 
+class ConfigurationMiddleware(object):
+    def __init__(self, server_key_pair):
+        self._configuration = {
+            'server_key_pair': server_key_pair
+        }
+
+    def process_request(self, req, res, resource = None):
+        req.context['configuration'] = self._configuration

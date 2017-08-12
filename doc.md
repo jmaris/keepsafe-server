@@ -2,28 +2,31 @@
 
 ## Registration
 
-1. User sends initial request to /Captcha
+1. User sends initial request to /captcha
 
-2. Server generates captcha and stores captcha answer, uuid and creation date in database, then returns : 
+2. Server generates captcha and stores captcha answer, uuid and creation date in database, then returns the following JSON data: 
 
    ``` json
     {
-        'captchaImage':"base64 image wizardry",
-        'captchaUUID':"8e628d99-59ca-4303-8280-ac8159fd2c4f"
+        "uuid": "3123bc1e-a192-4e35-9080-f96c7fdae6d7",
+        "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAA8[...]ZCAAAiWElEQVR4nO=="
     }
    ```
 
-3. The User sends a request to /Register :
+3. The User sends a request to /register :
 
    1. User solves captcha and choses a username and passphrase
-   2. Client derives the **encryption keypair** (private/public keypair for encryption) from the username and passphrase using Scrypt and the username as a SALT, preventing easy bruteforcing. => `publicKey`
+   2. Client derives the **encryption keypair** (private/public keypair for encryption) from the username and passphrase using Scrypt and the username as a SALT, preventing easy bruteforcing. => `public_key`
    3. Client sends the result to the server :
 
    ``` json
    {	
-    	'pubkey':"Rf5YElNrwMD7SNcNBPh9Iw6xBJmKxsNy4DoDT5oEDw8=",
-   	'captchaUUID':"70e56f72-e730-4199-b4b5-fe67d714add3",
-   	'captchaAnswer':"fucku"
+    	"public_key":"Rf5YElNrwMD7SNcNBPh9Iw6xBJmKxsNy4DoDT5oEDw8=",
+      "captcha": {
+          "uuid": "3123bc1e-a192-4e35-9080-f96c7fdae6d7",
+          "encrypted_answer": "r+0xHxHYjtMGiPROjVK+9nWZZrEzdQ==",
+          "nonce": "zIkmsndBdrR7UooDdoTJ/404dH1RZDAJ"
+      }
    }
    ```
 

@@ -1,6 +1,6 @@
 import db, falcon, json, uuid, random, string, base64, datetime, nacl.utils
 from captcha.image import ImageCaptcha
-from nacl.public import PrivateKey, Box
+from nacl.public import PublicKey, PrivateKey, Box
 import nacl.encoding, nacl.hash
 
 class ConfigurationResource(object):
@@ -13,12 +13,10 @@ class ConfigurationResource(object):
 
         resp.body = json.dumps(data)
 
-class UserResource(object):
-    def on_get(self, req, resp):
-        resp.status = falcon.HTTP_200
-        resp.body = 'db.User::Get'
-
+class RegisterResource(object):
     def on_post(self, req, resp):
+        configuration = req.context['configuration']
+
         if req.content_length:
             data = json.load(req.bounded_stream)
         else:
@@ -26,6 +24,47 @@ class UserResource(object):
 
         if 'public_key' not in data:
             raise Exception("No public key.")
+
+        if 'captcha' not in data:
+            raise Exception("No captcha.")
+
+        if 'uuid' not in data['captcha']:
+            raise Exception("No captcha UUID.")
+
+        if 'encrypted_answer' not in data['captcha']:
+            raise Exception("No captcha encrypted answer.")
+
+        if 'nonce' not in data['captcha']:
+            raise Exception("No captcha nonce.")
+
+        # Decrypt captcha answer
+
+        user_public_key = PublicKey(data['public_key'].encode('utf-8'), encoder = nacl.encoding.Base64Encoder)
+
+        captcha_encrypted_answer = base64.b64decode(data['captcha']['encrypted_answer'].encode('utf-8'))
+        captcha_nonce = base64.b64decode(data['captcha']['nonce'].encode('utf-8'))
+
+        box = Box(configuration['server_key_pair'], user_public_key)
+        captcha_answer = box.decrypt(captcha_encrypted_answer, captcha_nonce).decode('utf-8').lower()
+
+        # Get captcha from database
+
+        session = req.context['session']
+        captcha = session.query(db.Captcha).filter(db.Captcha.uuid == data['captcha']['uuid']).first()
+
+        print(captcha.answer)
+        print(captcha_answer)
+
+        if (captcha.answer == captcha_answer):
+            print("HOLY FUCK GOOD ANSWER")
+        else:
+            print("WRONG ANSWER")
+
+
+class UserResource(object):
+    def on_get(self, req, resp):
+        resp.status = falcon.HTTP_200
+        resp.body = 'db.User::Get'
 
 class CaptchaResource(object):
     def on_get(self, req, resp):

@@ -48,6 +48,7 @@ class CorsMiddleware(object):
 
         if origin in ALLOWED_ORIGINS:
             response.set_header('Access-Control-Allow-Origin', origin)
+            response.set_header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept')
 
 class DatabaseSessionMiddleware(object):
     def __init__(self, session):

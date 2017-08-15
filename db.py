@@ -11,7 +11,7 @@ class User(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key = True)
-    publicKey = Column(String(44))
+    public_key = Column(String(44))
 
 class Captcha(Base):
     __tablename__ = 'captcha'

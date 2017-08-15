@@ -52,14 +52,27 @@ class RegisterResource(object):
         session = req.context['session']
         captcha = session.query(db.Captcha).filter(db.Captcha.uuid == data['captcha']['uuid']).first()
 
-        print(captcha.answer)
-        print(captcha_answer)
+        # Whatever happens, delete the captcha from database
+        session.delete(captcha)
+        session.commit()
 
-        if (captcha.answer == captcha_answer):
-            print("HOLY FUCK GOOD ANSWER")
-        else:
-            print("WRONG ANSWER")
+        # Check the IP hash of the user who requested the captcha matches the current client's IP hash
+        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha.uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder).decode('utf-8')
 
+        if (captcha_ip_address_hash != captcha.ip_address_hash):
+            raise Exception("Captcha answer incorrect.")
+
+        # Check the captcha answer
+        if (captcha.answer != captcha_answer):
+            raise Exception("Captcha answer incorrect.")
+
+        # Create new user
+        user = db.User(
+            public_key = data['public_key']
+        )
+
+        session.add(user)
+        session.commit()
 
 class UserResource(object):
     def on_get(self, req, resp):

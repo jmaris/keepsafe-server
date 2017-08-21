@@ -74,6 +74,30 @@ class RegisterResource(object):
         session.add(user)
         session.commit()
 
+class DeviceResource(object):
+    def on_post(self, req, resp):
+        # Does Device registration
+        if req.content_length:
+            data = json.load(req.bounded_stream)
+        else:
+            raise Exception("No data.")
+
+        if 'challenge_uuid' not in data:
+            raise Exception("Challenge UUID missing.")
+
+        if 'challenge_reply' not in data:
+            raise Exception("Challenge Reply Missing")
+
+        if 'public_key' not in data:
+            raise Exception("User Public Key Missing.")
+
+        if 'device_key' not in data:
+            raise Exception("Device Key Missing.")
+
+        if 'permissions' not in data:
+            raise Exception("Permission Set Missing.")
+ 
+ 
 class UserResource(object):
     def on_get(self, req, resp):
         resp.status = falcon.HTTP_200

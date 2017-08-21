@@ -25,9 +25,18 @@ class Challenge(Base):
         __tablename__ = 'challenges'
         uuid = Column(String(36), primary_key = True)
         userID = Column(Integer)
+        name = Column(String(25))
         answer = Column(String(44))
         created = Column(DateTime, default = func.now())
-        
+
+class Devices(Base):
+    __tablename__ = 'devices'
+    uuid = Column(String(36), primary_key = True)
+    userID = Column(Integer)
+    answer = Column(String(6))
+    public_key = Column(String(44))
+    expires = Column(DateTime)
+    permissions = Column(String(4))
 
 Base.metadata.create_all(engine)
 

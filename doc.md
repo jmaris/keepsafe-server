@@ -67,7 +67,7 @@
 
       ```json
       {
-        challengeUUID:"692b034e-f05a-47ba-8c52-e92406f20b81",
+        challenge_uuid:"692b034e-f05a-47ba-8c52-e92406f20b81",
         challenge:"Zm9lemhvZ2ZpemVob2ZpaGFlb2loZmFva2VucGZzb2Jpc2hkb3A="
         nonce:"dhzdn729pemVob2ZpaGFlb2loZmFva2VucGZzb2df798dhdz0="
       }
@@ -89,11 +89,11 @@
 
       ```json
       {
-      publicKey:"6auYQU8XhrUkiryxwcBWvUficKOUrGLif1ghDBOAijc=",
-      challengeUUID:"692b034e-f05a-47ba-8c52-e92406f20b81"
+      public_key:"6auYQU8XhrUkiryxwcBWvUficKOUrGLif1ghDBOAijc=",
+      challenge_uuid:"692b034e-f05a-47ba-8c52-e92406f20b81"
       answer:"ZnplaG90aWdmaGFwZWZvYWliZm9haWZwb2FpaHpyb2lhemhnb2ZpYXo=",
-      deviceName:"Internet Explorer 4 on Windows Vista",
-      devicePublicKey:"GF928UD029Y972Y029EU0972G08ER",
+      device_name:"Internet Explorer 4 on Windows Vista",
+      device_key:"GF928UD029Y972Y029EU0972G08ER",
       expiryDateTime:"2017-07-26-10:30",
       accessLevel:[true,true,true,true]
       }
@@ -166,14 +166,14 @@
 
 ### users
 
-|  id  | publicKey |
-| :--: | :-------: |
-|  0   |    key    |
-|  1   |    key    |
+|  id  | public_key |
+| :--: | :--------: |
+|  0   |    key     |
+|  1   |    key     |
 
 ### devices
 
-|      uuid      | userID |       name       |       publickey        |  expires   | permissions |
+|      uuid      | userID |       name       |       device_key       |  expires   | permissions |
 | :------------: | :----: | :--------------: | :--------------------: | :--------: | ----------- |
 | uuid goes here |   0    | firefox on linux | ofnoaeifhoaeihfoaeihoa | 2018-04-06 | 1111        |
 |   other uuid   |   1    | netscape on OS/2 | djazpejazpfjaezofho_gr |            | 1110        |

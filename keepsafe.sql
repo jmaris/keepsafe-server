@@ -25,10 +25,10 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `captchas`
+-- Table structure for table `captcha`
 --
 
-CREATE TABLE `captchas` (
+CREATE TABLE `captcha` (
   `uuid` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
   `answer` char(5) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -40,9 +40,9 @@ CREATE TABLE `captchas` (
 -- Table structure for table `challenges`
 --
 
-CREATE TABLE `challenges` (
+CREATE TABLE `challenge` (
   `uuid` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `userID` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
   `answer` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -50,10 +50,10 @@ CREATE TABLE `challenges` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `devices`
+-- Table structure for table `device`
 --
 
-CREATE TABLE `devices` (
+CREATE TABLE `device` (
   `uuid` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
   `userID` int(11) NOT NULL,
   `name` varchar(40) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -65,10 +65,10 @@ CREATE TABLE `devices` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `passwords`
+-- Table structure for table `password`
 --
 
-CREATE TABLE `passwords` (
+CREATE TABLE `password` (
   `uuid` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
   `userID` int(11) NOT NULL,
   `data` varchar(4096) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -80,10 +80,10 @@ CREATE TABLE `passwords` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `users`
+-- Table structure for table `user`
 --
 
-CREATE TABLE `users` (
+CREATE TABLE `user` (
   `id` int(11) NOT NULL,
   `username` char(44) COLLATE utf8mb4_unicode_ci NOT NULL,
   `publicKey` char(44) COLLATE utf8mb4_unicode_ci NOT NULL
@@ -94,9 +94,9 @@ CREATE TABLE `users` (
 --
 
 --
--- Indexes for table `users`
+-- Indexes for table `user`
 --
-ALTER TABLE `users`
+ALTER TABLE `user`
   ADD PRIMARY KEY (`id`);
 
 --

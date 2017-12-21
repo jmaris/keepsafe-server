@@ -10,8 +10,9 @@ class App(falcon.API):
         self.add_route('/configuration', keepsafe.ConfigurationResource())
         self.add_route('/users', keepsafe.UserResource())
         self.add_route('/captcha', keepsafe.CaptchaResource())
-        self.add_route('/challenge', keepsafe.ChallengeResource())
+        self.add_route('/challenges', keepsafe.ChallengesResource())
         self.add_route('/register', keepsafe.RegisterResource())
+        self.add_route('/challenges/{challengeUuid}', keepsafe.ChallengeResource())
 
 server_key_pair = PrivateKey.generate()
 

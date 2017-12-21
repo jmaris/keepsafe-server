@@ -1,6 +1,6 @@
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 
 ALLOWED_ORIGINS = ['http://localhost:4200']
 
@@ -22,25 +22,28 @@ class Captcha(Base):
     ip_address_hash = Column(String(44))
 
 class Challenge(Base):
-        __tablename__ = 'challenges'
-        uuid = Column(String(36), primary_key = True)
-        userID = Column(Integer)
-        answer = Column(String(44))
-        created = Column(DateTime, default = func.now())
-        
+    __tablename__ = 'challenge'
+    uuid = Column(String(36), primary_key = True)
+    user_id = Column(Integer, ForeignKey("user.id"))
+    answer = Column(String(44))
+    created = Column(DateTime, default = func.now())
+
+    user = relationship("User")
+
+class UserSession(Base):
+    __tablename__ = 'session'
+    uuid = Column(String(36), primary_key = True)
+    user_id = Column(Integer, ForeignKey("user.id"))
+    created = Column(DateTime, default = func.now())
+    ip_address_hash = Column(Binary(32))
+    user_agent_hash = Column(Binary(32))
+
+    user = relationship("User")
 
 Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind = engine)
 session = Session()
-
-#new_user = User(
-#    username_hash = 'f08MWDBZh8BFMDFxxap1TT/geuP8jeBqN7bQsToN1usxrYyhipONKAuh3mmJZ4+eyThKh3oea8d8bk0lrQj7Uw==',
-#    public_key = 'QOK6kY3xFFT/4wQhjkCZrprclu5VrKc/gdK5PYdI6kQ='
-#)
-
-#session.add(new_user)
-#session.commit()
 
 class CorsMiddleware(object):
     def process_request(self, request, response):
@@ -51,18 +54,18 @@ class CorsMiddleware(object):
             response.set_header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept')
 
 class DatabaseSessionMiddleware(object):
-    def __init__(self, session):
-        self._session = session
+    def __init__(self, db_session):
+        self._db_session = db_session
 
     # When a new request comes in, add the database session to the request context
     def process_request(self, req, res, resource = None):
-        req.context['session'] = self._session
+        req.context['db_session'] = self._db_session
 
     # When a response is provided to a request, close the session
     def process_response(self, req, res, resource = None):
-        session = req.context['session']
+        db_session = req.context['db_session']
 
-        session.close()
+        db_session.close()
 
 class ConfigurationMiddleware(object):
     def __init__(self, server_key_pair):

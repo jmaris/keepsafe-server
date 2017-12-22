@@ -57,18 +57,20 @@ class RegisterResource(object):
         db_session.commit()
 
         # Check the IP hash of the user who requested the captcha matches the current client's IP hash
-        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha.uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder).decode('utf-8')
+        ip_address_hash = nacl.hash.sha256(str.encode(captcha.uuid + req.remote_addr), encoder = nacl.encoding.RawEncoder)
+        user_agent_hash = nacl.hash.sha256(str.encode(captcha.uuid + req.user_agent), encoder = nacl.encoding.RawEncoder)
+        answer_hash = nacl.hash.sha256(str.encode(captcha.uuid + captcha_answer), encoder = nacl.encoding.RawEncoder)
 
-        if (captcha_ip_address_hash != captcha.ip_address_hash):
+        if (ip_address_hash != captcha.ip_address_hash) or (user_agent_hash != captcha.user_agent_hash):
             raise Exception("Captcha answer incorrect.")
 
         # Check the captcha answer
-        if (captcha.answer != captcha_answer):
+        if captcha.answer_hash != answer_hash:
             raise Exception("Captcha answer incorrect.")
 
         # Create new user
         user = db.User(
-            public_key = data['public_key']
+            public_key = user_public_key.encode(nacl.encoding.RawEncoder)
         )
 
         db_session.add(user)
@@ -119,13 +121,11 @@ class CaptchaResource(object):
         # The answer should be case insensitive, the caps are just there for the bots
         captcha_answer = captcha_answer.lower()
 
-        # Hash the user's IP address with the captcha UUID as salt
-        captcha_ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.Base64Encoder).decode('utf-8')
-
         captcha = db.Captcha(
             uuid = captcha_uuid,
-            answer = captcha_answer,
-            ip_address_hash = captcha_ip_address_hash
+            answer_hash = nacl.hash.sha256(str.encode(captcha_uuid + captcha_answer), encoder = nacl.encoding.RawEncoder),
+            ip_address_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.remote_addr), encoder = nacl.encoding.RawEncoder),
+            user_agent_hash = nacl.hash.sha256(str.encode(captcha_uuid + req.user_agent), encoder = nacl.encoding.RawEncoder)
         )
 
         db_session = req.context['db_session']
@@ -152,15 +152,17 @@ class ChallengesResource(object):
             raise Exception("No public key.")
 
         db_session = req.context['db_session']
-        user = db_session.query(db.User).filter(db.User.public_key == data['public_key']).first()
 
-        if user == None:
+        user_public_key = PublicKey(data['public_key'].encode('utf-8'), encoder = nacl.encoding.Base64Encoder)
+
+        user = db_session.query(db.User).filter(db.User.public_key == user_public_key.encode(nacl.encoding.RawEncoder)).first()
+
+        if user is None:
             raise Exception("Public key unknown.")
 
         challenge_answer = nacl.utils.random(Box.NONCE_SIZE)
         challenge_uuid = str(uuid.uuid4())
 
-        user_public_key = PublicKey(user.public_key, encoder = nacl.encoding.Base64Encoder)
         box = Box(configuration['server_key_pair'], user_public_key)
 
         challenge_box = box.encrypt(plaintext = challenge_answer, encoder = nacl.encoding.Base64Encoder)
@@ -168,7 +170,7 @@ class ChallengesResource(object):
         challenge = db.Challenge(
             uuid = challenge_uuid,
             user = user,
-            answer = str(base64.b64encode(challenge_answer).decode('utf-8'))
+            answer_hash = nacl.hash.sha256(challenge_answer, encoder = nacl.encoding.RawEncoder)
         )
 
         db_session.add(challenge)
@@ -176,13 +178,13 @@ class ChallengesResource(object):
 
         resp.status = falcon.HTTP_200
         resp.body = json.dumps({
-            'uuid' : challenge_uuid,
+            'uuid': challenge_uuid,
             'nonce': str(challenge_box.nonce.decode('utf-8')),
             'challenge': str(challenge_box.ciphertext.decode('utf-8'))
         })
                 
-class ChallengeResource(object):
-    def on_post(self, req, resp, challengeUuid):
+class LoginResource(object):
+    def on_post(self, req, resp):
         configuration = req.context['configuration']
 
         if req.content_length:
@@ -190,34 +192,40 @@ class ChallengeResource(object):
         else:
             raise Exception("No data.")
 
-        if 'nonce' not in data:
+        if 'challenge' not in data:
+            raise Exception("No challenge.")
+
+        if 'uuid' not in data['challenge']:
+            raise Exception("No UUID.")
+
+        if 'nonce' not in data['challenge']:
             raise Exception("No nonce.")
 
-        if 'response' not in data:
+        if 'response' not in data['challenge']:
             raise Exception("No response")
 
         db_session = req.context['db_session']
-        challenge = db_session.query(db.Challenge).filter(db.Challenge.uuid == challengeUuid).first()
+        challenge = db_session.query(db.Challenge).filter(db.Challenge.uuid == data['challenge']['uuid']).first()
         user = challenge.user
 
-        if challenge == None:
+        if challenge is None:
             raise Exception("Challenge unknown.")
 
         db_session.delete(challenge)
         db_session.commit()
 
-        user_public_key = PublicKey(challenge.user.public_key, encoder = nacl.encoding.Base64Encoder)
+        user_public_key = PublicKey(challenge.user.public_key, encoder = nacl.encoding.RawEncoder)
 
         box = Box(configuration['server_key_pair'], user_public_key)
 
-        response = base64.b64decode(data['response'].encode('utf-8'))
+        response = base64.b64decode(data['challenge']['response'].encode('utf-8'))
 
-        nonce = base64.b64decode(data['nonce'].encode('utf-8'))
+        nonce = base64.b64decode(data['challenge']['nonce'].encode('utf-8'))
 
-        response_decrypted = box.decrypt(response, nonce, encoder = nacl.encoding.RawEncoder)
-        challenge_answer = base64.b64decode(challenge.answer.encode('utf-8'))
+        answer = box.decrypt(response, nonce, encoder = nacl.encoding.RawEncoder)
+        answer_hash = nacl.hash.sha256(answer, encoder = nacl.encoding.RawEncoder)
 
-        if response_decrypted != challenge_answer:
+        if answer_hash != challenge.answer_hash:
             raise Exception("Response incorrect.")
 
         user_session = db.UserSession(
@@ -226,8 +234,6 @@ class ChallengeResource(object):
             ip_address_hash = nacl.hash.sha256(req.remote_addr.encode('utf-8'), encoder = nacl.encoding.RawEncoder),
             user_agent_hash = nacl.hash.sha256(req.user_agent.encode('utf_8'), encoder = nacl.encoding.RawEncoder)
         )
-
-        print(user_session.ip_address_hash)
 
         db_session.add(user_session)
         db_session.commit()

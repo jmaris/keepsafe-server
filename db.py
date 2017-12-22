@@ -11,21 +11,22 @@ class User(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key = True)
-    public_key = Column(String(44))
+    public_key = Column(Binary(32))
 
 class Captcha(Base):
     __tablename__ = 'captcha'
 
     uuid = Column(String(36), primary_key = True)
-    answer = Column(String(6))
+    answer_hash = Column(Binary(32))
     created = Column(DateTime, default = func.now())
-    ip_address_hash = Column(String(44))
+    ip_address_hash = Column(Binary(32))
+    user_agent_hash = Column(Binary(32))
 
 class Challenge(Base):
     __tablename__ = 'challenge'
     uuid = Column(String(36), primary_key = True)
     user_id = Column(Integer, ForeignKey("user.id"))
-    answer = Column(String(44))
+    answer_hash = Column(Binary(32))
     created = Column(DateTime, default = func.now())
 
     user = relationship("User")
